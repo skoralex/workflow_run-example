@@ -1,0 +1,61 @@
+name: BUILD
+
+on:
+
+
+
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  BUILD:
+
+    runs-on: [ self-hosted, docker, linux ]
+    outputs:
+      tag: ${{ steps.tag-servers.outputs.tag }}
+
+
+    steps:
+
+
+      - name: Clone tests repo
+        uses: actions/checkout@v2
+        with:
+         repository: company/ci-tests
+         clean: 'true'
+         ref: master
+
+      - name: Clone servers repo
+        uses: actions/checkout@v2
+        with:
+         repository: company/servers
+         fetch-depth: '0'
+         submodules: 'recursive'
+         clean: 'true'
+         path: servers-tests/servers
+
+
+      - name: Extract tag name servers  
+        id: tag-servers
+        run: |
+          cd servers-tests/servers
+          tag=`git describe --tags`
+          echo "::set-output name=tag::$tag"
+
+
+      - name: Build servers bins
+        run: build_bins.sh
+
+      - name: Build and push docker images
+        run: |
+            echo "${{ steps.tag-servers.outputs.tag }}" > tag.csv
+            build_docker.sh
+             
+
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          retention-days: 15
+          name: tag
+          path: tag.csv
